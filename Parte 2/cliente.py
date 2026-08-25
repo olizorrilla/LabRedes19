@@ -2,22 +2,28 @@ import socket
 
 UMBRAL_CPU = None
 UMBRAL_MEM = None
-PUERTO_TCP = None
 IP_SERVIDOR = None
+PUERTO_TCP = None
 
-def config_cliente():
-    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    clientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    return clientSocket
+CLAVE = "clave_secreta"
 
-def descubrir_server(clientSocket):
+def config_udp():
+    udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    return udpSocket
+
+def config_tcp():
+    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_socket.connect((IP_SERVIDOR, PUERTO_TCP))
+    return tcp_socket
+
+def descubrir_server(udpSocket):
     global UMBRAL_CPU, UMBRAL_MEM, PUERTO_TCP, IP_SERVIDOR
-    clientSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019))
+    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019))
 
-    datos, adrr = clientSocket.recvfrom(2048)
+    datos, adrr = udpSocket.recvfrom(2048)
     mensaje = datos.decode()
     partes = mensaje.split() # SPLIT: SEPARA SERVER <> <> <> .. EN PARTES[0] = SERVER, PARTES[1] = <>, ...
-
 
     #PARA TESTEO:
     print("Mensaje recibido:", mensaje)
@@ -34,12 +40,38 @@ def descubrir_server(clientSocket):
             UMBRAL_CPU = umbral_cpu
             UMBRAL_MEM = umbral_mem
             PUERTO_TCP = puerto_tcp
+
+            udpSocket.close()
+            return True
+        
         except ValueError:
             print("VALORES INCORRECTOS ENVIADOS POR EL SERVIDOR")
     else:
         print("RESPUESTA DEL SERVIDOR INCORRECTA")
-    clientSocket.close()
 
+    udpSocket.close()
+    return False
 
-clientSocket = config_cliente()
-descubrir_server(clientSocket)
+def registrar_agente(tcpSocket):
+    mensaje = f"REGISTER {CLAVE}\n"
+    tcpSocket.sendall(mensaje.encode()) # PREGUNTAR SENDALL, SI NO ES NECESARIO UN BUCLE
+
+    respuesta = tcpSocket.recv(2048).decode()
+
+    if respuesta == "REG_RESP\n":
+        print("AGENTE REGISTRADO CORRECTAMENTE")
+        return True
+    
+    print("NO SE PUDO REGISTRAR EL AGENTE")
+    return False
+
+udpSocket = config_udp()
+descubierto = descubrir_server(udpSocket)
+
+if descubierto:
+    tcpSocket = config_tcp()
+
+    if registrar_agente(tcpSocket):
+        print("LISTO PARA COMENZAR MONITOREO")
+    else:
+        tcpSocket.close()

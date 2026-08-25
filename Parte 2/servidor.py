@@ -8,21 +8,45 @@ PORT = 6019
 UMBRAL_CPU = "80"
 UMBRAL_MEM = "80"
 PUERTO_TCP = "6020"
+CLAVE = "clave_secreta"
 
-def config_server():
-    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    #serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) PREGUNTAR SI VA EN UDP
-    serverSocket.bind((HOST, PORT))
-    return serverSocket
+def config_udp():
+    udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    #udpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) PREGUNTAR SI VA EN UDP
+    udpSocket.bind((HOST, PORT))
+    return udpSocket
 
+def config_tcp():
+    tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcpSocket.bind((HOST, int(PUERTO_TCP)))
+    tcpSocket.listen()
+    return tcpSocket
 
-def recibir_agente(serverSocket):
+def recibir_agente(udpSocket):
     while True:
-        datos, addr = serverSocket.recvfrom(2048) # PREGUNTAR POR TAMAÑO BUFFER
+        datos, addr = udpSocket.recvfrom(2048) # PREGUNTAR POR TAMAÑO BUFFER
         mensaje = datos.decode()
         if mensaje == "DISCOVER\n":
-            respuesta = "SERVER " + UMBRAL_CPU + " " + UMBRAL_MEM + " " + PUERTO_TCP + "\n"
-            serverSocket.sendto(respuesta.encode(), addr)
+            respuesta = f"SERVER {UMBRAL_CPU} {UMBRAL_MEM} {PUERTO_TCP}\n"
+            udpSocket.sendto(respuesta.encode(), addr)
 
-serverSocket = config_server()
-recibir_agente(serverSocket)
+def atender_agente(conn, addr):
+    datos = conn.recv(2048)
+    mensaje = datos.decode()
+    partes = mensaje.split()
+
+    if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
+        conn.sendall("REG_RESP\n".encode())
+        print(f"AGENTE REGISTRADO DESDE {addr}")
+    else:
+        conn.sendall("ERROR\n".encode())
+
+    conn.close()
+
+udpSocket = config_udp()
+tcpSocket = config_tcp()
+threading.Thread(target=recibir_agente, args=(udpSocket,), daemon=True).start()
+while True :
+    conn, addr = tcpSocket.accept()
+    threading.Thread(target=atender_agente, args=(conn, addr), daemon=True).start()

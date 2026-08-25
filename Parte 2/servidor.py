@@ -19,14 +19,10 @@ def config_server():
 def recibir_agente(serverSocket):
     while True:
         datos, addr = serverSocket.recvfrom(2048) # PREGUNTAR POR TAMAÑO BUFFER
-        mensaje = datos.decode() # strip() para eliminar \n
+        mensaje = datos.decode()
         if mensaje == "DISCOVER\n":
             respuesta = "SERVER " + UMBRAL_CPU + " " + UMBRAL_MEM + " " + PUERTO_TCP + "\n"
-
-            serverSocket.sendto(
-                respuesta.encode(),
-                addr
-            )
+            serverSocket.sendto(respuesta.encode(), addr)
 
 serverSocket = config_server()
 recibir_agente(serverSocket)

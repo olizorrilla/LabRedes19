@@ -21,13 +21,12 @@ def descubrir_server(udpSocket):
     global UMBRAL_CPU, UMBRAL_MEM, PUERTO_TCP, IP_SERVIDOR
     udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019))
 
-    datos, adrr = udpSocket.recvfrom(2048)
+    datos, addr = udpSocket.recvfrom(2048)
     mensaje = datos.decode()
     partes = mensaje.split() # SPLIT: SEPARA SERVER <> <> <> .. EN PARTES[0] = SERVER, PARTES[1] = <>, ...
 
     #PARA TESTEO:
-    print("Mensaje recibido:", mensaje)
-    print("Desde:", adrr)
+    print("MENSAJE RECIBIDO: ", mensaje, " DESDE: ", addr)
 
     if len(partes) == 4 and partes[0] == "SERVER":
         try:
@@ -36,7 +35,7 @@ def descubrir_server(udpSocket):
             puerto_tcp = int(partes[3])
 
             # ASIGNO A VARIABLES GLOBALES
-            IP_SERVIDOR = adrr[0]
+            IP_SERVIDOR = addr[0]
             UMBRAL_CPU = umbral_cpu
             UMBRAL_MEM = umbral_mem
             PUERTO_TCP = puerto_tcp

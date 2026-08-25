@@ -9,6 +9,10 @@ UMBRAL_CPU = "80"
 UMBRAL_MEM = "80"
 PUERTO_TCP = "6020"
 CLAVE = "clave_secreta"
+ID_SIGUIENTE = 0 
+
+agentes = {}
+lock_ids = threading.Lock()
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -32,13 +36,23 @@ def recibir_agente(udpSocket):
             udpSocket.sendto(respuesta.encode(), addr)
 
 def atender_agente(conn, addr):
+    global ID_SIGUIENTE
     datos = conn.recv(2048)
     mensaje = datos.decode()
     partes = mensaje.split()
 
     if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
+
+        # SECCIÓN CRÍTICA para asignación de ids 
+        with lock_ids:
+            id_agente = ID_SIGUIENTE;
+            ID_SIGUIENTE = ID_SIGUIENTE + 1
+            agentes[id_agente] = {"addr": addr, "CPU": [], "MEM": []}
+
         conn.sendall("REG_RESP\n".encode())
         print(f"AGENTE REGISTRADO DESDE {addr}")
+        print("AGENTES:", agentes)
+        
     else:
         conn.sendall("ERROR\n".encode())
 

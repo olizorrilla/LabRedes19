@@ -1,4 +1,6 @@
 import socket
+import psutil
+import time
 
 UMBRAL_CPU = None
 UMBRAL_MEM = None
@@ -19,11 +21,11 @@ def config_tcp():
 
 def descubrir_server(udpSocket):
     global UMBRAL_CPU, UMBRAL_MEM, PUERTO_TCP, IP_SERVIDOR
-    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019))
+    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019)) # CAMBIAR POR ALGO DE LA SUBRED, NO ENTENDÍ
 
     datos, addr = udpSocket.recvfrom(2048)
     mensaje = datos.decode()
-    partes = mensaje.split() # SPLIT: SEPARA SERVER <> <> <> .. EN PARTES[0] = SERVER, PARTES[1] = <>, ...
+    partes = mensaje.split()
 
     #PARA TESTEO:
     print("MENSAJE RECIBIDO: ", mensaje, " DESDE: ", addr)
@@ -53,7 +55,7 @@ def descubrir_server(udpSocket):
 
 def registrar_agente(tcpSocket):
     mensaje = f"REGISTER {CLAVE}\n"
-    tcpSocket.sendall(mensaje.encode()) # PREGUNTAR SENDALL, SI NO ES NECESARIO UN BUCLE
+    tcpSocket.sendall(mensaje.encode()) # CAMBIAR POR BUCLE
 
     respuesta = tcpSocket.recv(2048).decode()
 
@@ -64,6 +66,22 @@ def registrar_agente(tcpSocket):
     print("NO SE PUDO REGISTRAR EL AGENTE")
     return False
 
+def monitorear(tcpSocket):
+    while True:
+        cpu = psutil.cpu_percent()
+        mem = psutil.virtual_memory().percent
+
+        tcpSocket.sendall(f"METRIC CPU {cpu}\n".encode()) # CAMBIAR POR BUCLE
+        tcpSocket.sendall(f"METRIC MEM {mem}\n".encode()) # CAMBIAR POR BUCLE
+
+        if cpu > UMBRAL_CPU:
+            tcpSocket.sendall(f"ALERT CPU {cpu}\n".encode()) # CAMBIAR POR BUCLE
+
+        if mem > UMBRAL_MEM:
+            tcpSocket.sendall(f"ALERT MEM {mem}\n".encode()) # CAMBIAR POR BUCLE
+        
+        time.sleep(15)
+
 udpSocket = config_udp()
 descubierto = descubrir_server(udpSocket)
 
@@ -72,5 +90,11 @@ if descubierto:
 
     if registrar_agente(tcpSocket):
         print("LISTO PARA COMENZAR MONITOREO")
+        try:
+            monitorear(tcpSocket)
+        except KeyboardInterrupt:
+            tcpSocket.sendall(b"END\n") # CAMBIAR POR BUCLE
+        finally:
+            tcpSocket.close()
     else:
         tcpSocket.close()

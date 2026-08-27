@@ -1,4 +1,7 @@
 import socket
+import psutil
+import time
+from aux import *
 
 UMBRAL_CPU = None
 UMBRAL_MEM = None
@@ -19,13 +22,12 @@ def config_tcp():
 
 def descubrir_server(udpSocket):
     global UMBRAL_CPU, UMBRAL_MEM, PUERTO_TCP, IP_SERVIDOR
-    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019))
+    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019)) # CAMBIAR POR ALGO DE LA SUBRED, NO ENTENDÍ
 
     datos, addr = udpSocket.recvfrom(2048)
     mensaje = datos.decode()
-    partes = mensaje.split() # SPLIT: SEPARA SERVER <> <> <> .. EN PARTES[0] = SERVER, PARTES[1] = <>, ...
+    partes = mensaje.split()
 
-    #PARA TESTEO:
     print("MENSAJE RECIBIDO: ", mensaje, " DESDE: ", addr)
 
     if len(partes) == 4 and partes[0] == "SERVER":
@@ -34,7 +36,6 @@ def descubrir_server(udpSocket):
             umbral_mem = int(partes[2])
             puerto_tcp = int(partes[3])
 
-            # ASIGNO A VARIABLES GLOBALES
             IP_SERVIDOR = addr[0]
             UMBRAL_CPU = umbral_cpu
             UMBRAL_MEM = umbral_mem
@@ -51,18 +52,33 @@ def descubrir_server(udpSocket):
     udpSocket.close()
     return False
 
-def registrar_agente(tcpSocket):
-    mensaje = f"REGISTER {CLAVE}\n"
-    tcpSocket.sendall(mensaje.encode()) # PREGUNTAR SENDALL, SI NO ES NECESARIO UN BUCLE
+def registrar_agente(tcpSocket, buffer):
+    enviar_mensaje(tcpSocket, f"REGISTER {CLAVE}")
 
-    respuesta = tcpSocket.recv(2048).decode()
+    respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
 
-    if respuesta == "REG_RESP\n":
+    if respuesta == "REG_RESP":
         print("AGENTE REGISTRADO CORRECTAMENTE")
-        return True
+        return True, buffer
     
     print("NO SE PUDO REGISTRAR EL AGENTE")
-    return False
+    return False, buffer
+
+def monitorear(tcpSocket):
+    while True:
+        cpu = psutil.cpu_percent()
+        mem = psutil.virtual_memory().percent
+
+        enviar_mensaje(tcpSocket, f"METRIC CPU {cpu}")
+        enviar_mensaje(tcpSocket, f"METRIC MEM {mem}")
+
+        if cpu > UMBRAL_CPU:
+            enviar_mensaje(tcpSocket, f"ALERT CPU {cpu}")
+
+        if mem > UMBRAL_MEM:
+            enviar_mensaje(tcpSocket, f"ALERT MEM {mem}")
+        
+        time.sleep(15)
 
 udpSocket = config_udp()
 descubierto = descubrir_server(udpSocket)
@@ -70,7 +86,16 @@ descubierto = descubrir_server(udpSocket)
 if descubierto:
     tcpSocket = config_tcp()
 
-    if registrar_agente(tcpSocket):
+    buffer = b""
+    registrado, buffer = registrar_agente(tcpSocket, buffer)
+
+    if registrado:
         print("LISTO PARA COMENZAR MONITOREO")
+        try:
+            monitorear(tcpSocket)
+        except KeyboardInterrupt:
+            enviar_mensaje(tcpSocket, "END")
+        finally:
+            tcpSocket.close()
     else:
         tcpSocket.close()

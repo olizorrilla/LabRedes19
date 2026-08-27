@@ -53,12 +53,11 @@ def descubrir_server(udpSocket):
     return False
 
 def registrar_agente(tcpSocket, buffer):
-    mensaje = f"REGISTER {CLAVE}\n"
-    enviar_mensaje(tcpSocket, mensaje)
+    enviar_mensaje(tcpSocket, f"REGISTER {CLAVE}")
 
     respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
 
-    if respuesta == "REG_RESP\n":
+    if respuesta == "REG_RESP":
         print("AGENTE REGISTRADO CORRECTAMENTE")
         return True, buffer
     
@@ -70,14 +69,14 @@ def monitorear(tcpSocket):
         cpu = psutil.cpu_percent()
         mem = psutil.virtual_memory().percent
 
-        enviar_mensaje(tcpSocket, f"METRIC CPU {cpu}\n")
-        enviar_mensaje(tcpSocket, f"METRIC MEM {mem}\n")
+        enviar_mensaje(tcpSocket, f"METRIC CPU {cpu}")
+        enviar_mensaje(tcpSocket, f"METRIC MEM {mem}")
 
         if cpu > UMBRAL_CPU:
-            enviar_mensaje(tcpSocket, f"ALERT CPU {cpu}\n")
+            enviar_mensaje(tcpSocket, f"ALERT CPU {cpu}")
 
         if mem > UMBRAL_MEM:
-            enviar_mensaje(tcpSocket, f"ALERT MEM {mem}\n")
+            enviar_mensaje(tcpSocket, f"ALERT MEM {mem}")
         
         time.sleep(15)
 
@@ -95,7 +94,7 @@ if descubierto:
         try:
             monitorear(tcpSocket)
         except KeyboardInterrupt:
-            enviar_mensaje(tcpSocket, "END\n")
+            enviar_mensaje(tcpSocket, "END")
         finally:
             tcpSocket.close()
     else:

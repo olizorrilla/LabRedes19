@@ -1,5 +1,6 @@
 import socket
 import threading
+from aux import *
 
 HOST = ""
 PORT = 6019
@@ -30,21 +31,32 @@ def recibir_agente(udpSocket):
             respuesta = f"SERVER {UMBRAL_CPU} {UMBRAL_MEM} {PUERTO_TCP}\n"
             udpSocket.sendto(respuesta.encode(), addr)
 
-def atender_agente(conn, addr):
-    datos = conn.recv(2048)
-    mensaje = datos.decode()
-    partes = mensaje.split()
+def atender_agente(tcpSocket, addr):
+    buffer = b""
 
-    if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
-        conn.sendall("REG_RESP\n".encode()) # CAMBIAR POR BUCLE
-        print(f"AGENTE REGISTRADO DESDE {addr}")
+    try:
+        mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
+        partes = mensaje.split()
 
-        # while True:
+        if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
+            enviar_mensaje(tcpSocket, "REG_RESP")
+            print(f"AGENTE REGISTRADO DESDE {addr}")
 
-    else:
-        conn.sendall("ERROR\n".encode()) # CAMBIAR POR BUCLE
+            while True: # ACA VA MONITOREO
+                mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
 
-    conn.close()
+                if mensaje == "END": # QUE CORTÓ LA CONEXIÓN, CAPAZ HAY QUE MOSTRAR ALGO
+                    break
+
+                print(f"RECIBIDO DESDE {addr}: {mensaje}")
+
+        else:
+            enviar_mensaje(tcpSocket, "ERROR")
+
+    except ConnectionError:
+        print("CONEXIÓN CERRADA")
+    
+    tcpSocket.close()
 
 udpSocket = config_udp()
 tcpSocket = config_tcp()

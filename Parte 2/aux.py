@@ -1,5 +1,5 @@
 def enviar_mensaje(tcpSocket, mensaje):
-    datos = mensaje.encode()
+    datos = f"{mensaje}\n".encode()
 
     while datos != b"": # b"" ES "" PERO EN BYTES
         cantidad_enviada = tcpSocket.send(datos)

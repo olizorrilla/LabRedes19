@@ -53,6 +53,24 @@ def atender_agente(tcpSocket, addr):
 
                     print(f"RECIBIDO DESDE {addr}: {mensaje}")
 
+                    partes = mensaje.split()
+
+                    # LÓGICA REGISTRO ÚLTIMAS 10 MÉTRICAS 
+
+                    if len(partes) == 3 and partes[0] == "METRIC":
+                        nombre_metrica = partes[1]
+                        valor = float(partes[2])
+
+                        if nombre_metrica == "CPU" or nombre_metrica == "MEM":
+                            agentes[addr][nombre_metrica].append(valor)
+
+                            if len(agentes[addr][nombre_metrica]) > 10:
+                                agentes[addr][nombre_metrica].pop(0)
+
+                    # LÓGICA MANEJO ALERTAS 
+
+                    elif len(partes) == 3 and partes[0] == "ALERT":
+                        pass
         else:
             enviar_mensaje(tcpSocket, "ERROR")
 

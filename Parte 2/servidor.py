@@ -40,18 +40,18 @@ def atender_agente(tcpSocket, addr):
         mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
         partes = mensaje.split()
 
-    if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
-        agentes[addr] = {"CPU": [], "MEM":[]}
-        enviar_mensaje(tcpSocket, "REG_RESP")
-        print(f"AGENTE REGISTRADO DESDE {addr}")
+        if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
+            agentes[addr] = {"CPU": [], "MEM":[]}
+            enviar_mensaje(tcpSocket, "REG_RESP")
+            print(f"AGENTE REGISTRADO DESDE {addr}")
 
-        while True: # ACA VA MONITOREO
-                mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
+            while True: # ACA VA MONITOREO
+                    mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
 
-                if mensaje == "END": # QUE CORTÓ LA CONEXIÓN, CAPAZ HAY QUE MOSTRAR ALGO
-                    break
+                    if mensaje == "END": # QUE CORTÓ LA CONEXIÓN, CAPAZ HAY QUE MOSTRAR ALGO
+                        break
 
-                print(f"RECIBIDO DESDE {addr}: {mensaje}")
+                    print(f"RECIBIDO DESDE {addr}: {mensaje}")
 
         else:
             enviar_mensaje(tcpSocket, "ERROR")

@@ -11,6 +11,8 @@ PUERTO_TCP = "6020"
 
 CLAVE = "clave_secreta"
 
+agentes = {}
+
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udpSocket.bind((HOST, PORT))
@@ -38,11 +40,12 @@ def atender_agente(tcpSocket, addr):
         mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
         partes = mensaje.split()
 
-        if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
-            enviar_mensaje(tcpSocket, "REG_RESP")
-            print(f"AGENTE REGISTRADO DESDE {addr}")
+    if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
+        agentes[addr] = {"CPU": [], "MEM":[]}
+        enviar_mensaje(tcpSocket, "REG_RESP")
+        print(f"AGENTE REGISTRADO DESDE {addr}")
 
-            while True: # ACA VA MONITOREO
+        while True: # ACA VA MONITOREO
                 mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
 
                 if mensaje == "END": # QUE CORTÓ LA CONEXIÓN, CAPAZ HAY QUE MOSTRAR ALGO

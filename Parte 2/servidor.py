@@ -1,18 +1,25 @@
 import socket
 import threading
+import logging
 from aux import enviar_mensaje, recibir_mensaje
 
 HOST = ""
 PORT = 6019
 
 UMBRAL_CPU = "80"
-UMBRAL_MEM = "80"
+UMBRAL_MEM = "40"
 PUERTO_TCP = "6020"
 
 CLAVE = "clave_secreta"
 
 lock_agentes = threading.Lock()
 agentes = {}
+
+logging.basicConfig(
+    filename="alertas.log",
+    level=logging.WARNING,
+    format="%(asctime)s - %(message)s"
+)
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -81,7 +88,23 @@ def atender_agente(tcpSocket, addr):
 
                 # LÓGICA MANEJO ALERTAS: 
                 elif len(partes) == 3 and partes[0] == "ALERT":
-                    pass
+                    nombre_metrica = partes[1]
+
+                    if nombre_metrica != "CPU" and nombre_metrica != "MEM":
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    try:
+                        valor = float(partes[2])
+                    except ValueError:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    logging.warning(f"AGENTE {id_agente} - {nombre_metrica} = {valor}")
+
+                    print(f"ALERTA DE {id_agente}: "
+                          f"{nombre_metrica} = {valor}"
+                    )
 
                 # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO:
                 elif mensaje.startswith("PROC "):

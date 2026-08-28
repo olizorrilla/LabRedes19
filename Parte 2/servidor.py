@@ -71,6 +71,14 @@ def atender_agente(tcpSocket, addr):
 
                     elif len(partes) == 3 and partes[0] == "ALERT":
                         pass
+
+
+                    # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO
+
+                    elif len(partes) == 1 and partes [0] == "PROC":
+                        procesos = mensaje[len('PROC'):]
+                        print(f"PROCESOS DE {addr}:{procesos}")
+                        # aca en realidad hay que identificar a que admin mandarle esta info
         else:
             enviar_mensaje(tcpSocket, "ERROR")
 

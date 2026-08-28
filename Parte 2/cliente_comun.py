@@ -1,6 +1,7 @@
 import socket
 import psutil
 import time
+import threading
 from aux import *
 
 UMBRAL_CPU = None
@@ -80,6 +81,30 @@ def monitorear(tcpSocket):
         
         time.sleep(15)
 
+def obtener_procesos():
+    procesos = []
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            pid = proc.info['pid']
+            name = proc.info['name']
+            procesos.append(f"{pid}:{name}")
+
+        except psutil.AccessDenied:
+            continue
+
+    return procesos
+            
+def enviar_procesos(tcpSocket, buffer):
+    while True:
+        respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
+
+        if respuesta == "GET_PROC":
+            procesos = obtener_procesos()
+            enviar_mensaje(tcpSocket, f"PROC {procesos}")
+
+
+# FLUJO PRINCIPAL 
+
 udpSocket = config_udp()
 descubierto = descubrir_server(udpSocket)
 
@@ -91,8 +116,9 @@ if descubierto:
 
     if registrado:
         print("LISTO PARA COMENZAR MONITOREO")
+        threading.Thread(target=monitorear, args=(tcpSocket,),daemon=True).start()
         try:
-            monitorear(tcpSocket)
+            enviar_procesos(tcpSocket, buffer)
         except KeyboardInterrupt:
             enviar_mensaje(tcpSocket, "END")
         finally:

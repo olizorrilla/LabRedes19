@@ -11,6 +11,12 @@ PUERTO_TCP = None
 
 CLAVE = "clave_secreta"
 
+lock_envio = threading.Lock()
+
+def enviar_seguro(tcpSocket, mensaje):
+    with lock_envio:
+        enviar_mensaje(tcpSocket, mensaje)
+
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -54,7 +60,7 @@ def descubrir_server(udpSocket):
     return False
 
 def registrar_agente(tcpSocket, buffer):
-    enviar_mensaje(tcpSocket, f"REGISTER {CLAVE}")
+    enviar_seguro(tcpSocket, f"REGISTER {CLAVE}")
 
     respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
 
@@ -70,14 +76,14 @@ def monitorear(tcpSocket):
         cpu = psutil.cpu_percent()
         mem = psutil.virtual_memory().percent
 
-        enviar_mensaje(tcpSocket, f"METRIC CPU {cpu}")
-        enviar_mensaje(tcpSocket, f"METRIC MEM {mem}")
+        enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
+        enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
 
         if cpu > UMBRAL_CPU:
-            enviar_mensaje(tcpSocket, f"ALERT CPU {cpu}")
+            enviar_seguro(tcpSocket, f"ALERT CPU {cpu}")
 
         if mem > UMBRAL_MEM:
-            enviar_mensaje(tcpSocket, f"ALERT MEM {mem}")
+            enviar_seguro(tcpSocket, f"ALERT MEM {mem}")
         
         time.sleep(15)
 
@@ -87,24 +93,27 @@ def obtener_procesos():
         try:
             pid = proc.info['pid']
             name = proc.info['name']
+
             procesos.append(f"{pid}:{name}")
 
         except psutil.AccessDenied:
             continue
 
-    return procesos
+    return ", ".join(procesos)
             
 def enviar_procesos(tcpSocket, buffer):
     while True:
-        respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
+        mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
 
-        if respuesta == "GET_PROC":
+        if mensaje == "GET_PROC":
             procesos = obtener_procesos()
-            enviar_mensaje(tcpSocket, f"PROC {procesos}")
+            enviar_seguro(tcpSocket, f"PROC {procesos}")
+        elif mensaje == "ERROR":
+            print("EL SERVIDOR DIÓ ERROR")
+        else:
+            enviar_seguro(tcpSocket, "ERROR")
 
-
-# FLUJO PRINCIPAL 
-
+# MAIN:
 udpSocket = config_udp()
 descubierto = descubrir_server(udpSocket)
 
@@ -116,11 +125,11 @@ if descubierto:
 
     if registrado:
         print("LISTO PARA COMENZAR MONITOREO")
-        threading.Thread(target=monitorear, args=(tcpSocket,),daemon=True).start()
         try:
+            threading.Thread(target=monitorear, args=(tcpSocket,), daemon=True).start()
             enviar_procesos(tcpSocket, buffer)
         except KeyboardInterrupt:
-            enviar_mensaje(tcpSocket, "END")
+            enviar_seguro(tcpSocket, "END")
         finally:
             tcpSocket.close()
     else:

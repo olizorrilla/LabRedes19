@@ -40,45 +40,54 @@ def atender_agente(tcpSocket, addr):
         mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
         partes = mensaje.split()
 
-        if (len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE):
-            agentes[addr] = {"CPU": [], "MEM":[]}
+        # AGENTE COMUN:
+        if len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE:
+            agentes[addr] = {"CPU": [], "MEM":[]} # CREO QUE HAY QUE VERIFICAR QUE agentes[addr] ESTÉ VACÍO Y LIBERARLO CUANDO SE CORTA LA CONEXIÓN
             enviar_mensaje(tcpSocket, "REG_RESP")
             print(f"AGENTE REGISTRADO DESDE {addr}")
 
             while True: # ACA VA MONITOREO
-                    mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
+                mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
+                print(f"RECIBIDO DESDE {addr}: {mensaje}")
+                partes = mensaje.split()
 
-                    if mensaje == "END": # QUE CORTÓ LA CONEXIÓN, CAPAZ HAY QUE MOSTRAR ALGO
-                        break
+                # LÓGICA CORTAR CONEXIÓN: // LIBERAR agentes[]
+                if mensaje == "END":
+                    break
 
-                    print(f"RECIBIDO DESDE {addr}: {mensaje}")
+                # LÓGICA REGISTRO ÚLTIMAS 10 MÉTRICAS:
+                if len(partes) == 3 and partes[0] == "METRIC":
+                    nombre_metrica = partes[1]
+                    valor = float(partes[2])
 
-                    partes = mensaje.split()
+                    if nombre_metrica == "CPU" or nombre_metrica == "MEM":
+                        agentes[addr][nombre_metrica].append(valor)
 
-                    # LÓGICA REGISTRO ÚLTIMAS 10 MÉTRICAS 
+                        if len(agentes[addr][nombre_metrica]) > 10:
+                            agentes[addr][nombre_metrica].pop(0)
 
-                    if len(partes) == 3 and partes[0] == "METRIC":
-                        nombre_metrica = partes[1]
-                        valor = float(partes[2])
+                # LÓGICA MANEJO ALERTAS: 
+                elif len(partes) == 3 and partes[0] == "ALERT":
+                    pass
 
-                        if nombre_metrica == "CPU" or nombre_metrica == "MEM":
-                            agentes[addr][nombre_metrica].append(valor)
+                # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO:
+                elif len(partes) == 1 and partes[0] == "PROC":
+                    procesos = mensaje[len('PROC'):]
+                    print(f"PROCESOS DE {addr}:{procesos}")
+                    # aca en realidad hay que identificar a que admin mandarle esta info
+        
+        # AGENTE ADMIN
+        elif len(partes) == 2 and partes[0] == "ADMIN" and partes[1] == CLAVE:
+            enviar_mensaje(tcpSocket, "ADMIN_RESP")
+            print(f"ADMIN REGISTRADO DESDE {addr}")
 
-                            if len(agentes[addr][nombre_metrica]) > 10:
-                                agentes[addr][nombre_metrica].pop(0)
+            while True:
+                mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
 
-                    # LÓGICA MANEJO ALERTAS 
+                if mensaje == "END": # QUE CORTÓ LA CONEXIÓN
+                    break
 
-                    elif len(partes) == 3 and partes[0] == "ALERT":
-                        pass
-
-
-                    # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO
-
-                    elif len(partes) == 1 and partes [0] == "PROC":
-                        procesos = mensaje[len('PROC'):]
-                        print(f"PROCESOS DE {addr}:{procesos}")
-                        # aca en realidad hay que identificar a que admin mandarle esta info
+        # ERROR:
         else:
             enviar_mensaje(tcpSocket, "ERROR")
 

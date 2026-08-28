@@ -10,8 +10,9 @@ UMBRAL_MEM = "80"
 PUERTO_TCP = "6020"
 
 CLAVE = "clave_secreta"
-agentes = {}
 
+lock_agentes = threading.Lock()
+agentes = {}
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -35,6 +36,7 @@ def recibir_agente(udpSocket):
 
 def atender_agente(tcpSocket, addr):
     buffer = b""
+    id_agente = None
 
     try:
         mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
@@ -42,11 +44,14 @@ def atender_agente(tcpSocket, addr):
 
         # AGENTE COMUN:
         if len(partes) == 2 and partes[0] == "REGISTER" and partes[1] == CLAVE:
-            agentes[addr] = {"CPU": [], "MEM":[]} # CREO QUE HAY QUE VERIFICAR QUE agentes[addr] ESTÉ VACÍO Y LIBERARLO CUANDO SE CORTA LA CONEXIÓN
+            id_agente = f"{addr[0]}:{addr[1]}"
+            with lock_agentes:
+                agentes[id_agente] = {"Dir": addr, "Socket": tcpSocket, "CPU": [], "MEM": []} # GUARDO EL SOCKET Y ADDR PARA IDENTIFICARLO CUANDO TENGA QUE RESPONDER LA SOLICITUD DEL ADMIN
+
             enviar_mensaje(tcpSocket, "REG_RESP")
             print(f"AGENTE REGISTRADO DESDE {addr}")
 
-            while True: # ACA VA MONITOREO
+            while True:
                 mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
                 print(f"RECIBIDO DESDE {addr}: {mensaje}")
                 partes = mensaje.split()
@@ -58,23 +63,37 @@ def atender_agente(tcpSocket, addr):
                 # LÓGICA REGISTRO ÚLTIMAS 10 MÉTRICAS:
                 if len(partes) == 3 and partes[0] == "METRIC":
                     nombre_metrica = partes[1]
-                    valor = float(partes[2])
+                    try: # PARA VERIFICAR POR MENSAJE DEL TIPO METRIC CPU hola
+                        valor = float(partes[2])
+                    except ValueError:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue # VUELVE AL COMIENZO DEL WHILE
 
                     if nombre_metrica == "CPU" or nombre_metrica == "MEM":
-                        agentes[addr][nombre_metrica].append(valor)
+                        with lock_agentes:
+                            agentes[id_agente][nombre_metrica].append(valor)
 
-                        if len(agentes[addr][nombre_metrica]) > 10:
-                            agentes[addr][nombre_metrica].pop(0)
+                            if len(agentes[id_agente][nombre_metrica]) > 10:
+                                agentes[id_agente][nombre_metrica].pop(0)
+                    else:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
 
                 # LÓGICA MANEJO ALERTAS: 
                 elif len(partes) == 3 and partes[0] == "ALERT":
                     pass
 
                 # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO:
-                elif len(partes) == 1 and partes[0] == "PROC":
-                    procesos = mensaje[len('PROC'):]
-                    print(f"PROCESOS DE {addr}:{procesos}")
+                elif mensaje.startswith("PROC "):
+                    procesos = mensaje[len("PROC "):]
+                    print(f"PROCESOS DE {id_agente}:{procesos}")
                     # aca en realidad hay que identificar a que admin mandarle esta info
+                
+                elif mensaje == "ERROR":
+                    print(f"EL AGENTE {id_agente} INFORMÓ UN ERROR")
+
+                else:
+                    enviar_mensaje(tcpSocket, "ERROR")
         
         # AGENTE ADMIN
         elif len(partes) == 2 and partes[0] == "ADMIN" and partes[1] == CLAVE:
@@ -93,8 +112,15 @@ def atender_agente(tcpSocket, addr):
 
     except ConnectionError:
         print("CONEXIÓN CERRADA")
+
+    finally: # FINALLY ES UNA PARTE DEL TRY QUE SE EJECUTA SIEMPRE
+        if id_agente is not None:
+            with lock_agentes:
+                agentes.pop(id_agente, None)
+
+            print(f"AGENTE {id_agente} ELIMINADO")
+        tcpSocket.close()
     
-    tcpSocket.close()
 
 udpSocket = config_udp()
 tcpSocket = config_tcp()

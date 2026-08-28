@@ -1,6 +1,6 @@
 import socket
 import threading
-from aux import *
+from aux import enviar_mensaje, recibir_mensaje
 
 HOST = ""
 PORT = 6019

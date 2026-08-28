@@ -1,4 +1,3 @@
-import socket
 import psutil
 import time
 import threading
@@ -16,48 +15,6 @@ lock_envio = threading.Lock()
 def enviar_seguro(tcpSocket, mensaje):
     with lock_envio:
         enviar_mensaje(tcpSocket, mensaje)
-
-def config_udp():
-    udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    return udpSocket
-
-def config_tcp():
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.connect((IP_SERVIDOR, PUERTO_TCP))
-    return tcp_socket
-
-def descubrir_server(udpSocket):
-    global UMBRAL_CPU, UMBRAL_MEM, PUERTO_TCP, IP_SERVIDOR
-    udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019)) # CAMBIAR POR ALGO DE LA SUBRED, NO ENTENDÍ
-
-    datos, addr = udpSocket.recvfrom(2048)
-    mensaje = datos.decode()
-    partes = mensaje.split()
-
-    print("MENSAJE RECIBIDO: ", mensaje, " DESDE: ", addr)
-
-    if len(partes) == 4 and partes[0] == "SERVER":
-        try:
-            umbral_cpu = int(partes[1])
-            umbral_mem = int(partes[2])
-            puerto_tcp = int(partes[3])
-
-            IP_SERVIDOR = addr[0]
-            UMBRAL_CPU = umbral_cpu
-            UMBRAL_MEM = umbral_mem
-            PUERTO_TCP = puerto_tcp
-
-            udpSocket.close()
-            return True
-        
-        except ValueError:
-            print("VALORES INCORRECTOS ENVIADOS POR EL SERVIDOR")
-    else:
-        print("RESPUESTA DEL SERVIDOR INCORRECTA")
-
-    udpSocket.close()
-    return False
 
 def registrar_agente(tcpSocket, buffer):
     enviar_seguro(tcpSocket, f"REGISTER {CLAVE}")
@@ -115,10 +72,11 @@ def enviar_procesos(tcpSocket, buffer):
 
 # MAIN:
 udpSocket = config_udp()
-descubierto = descubrir_server(udpSocket)
+res = descubrir_server(udpSocket)
 
-if descubierto:
-    tcpSocket = config_tcp()
+if res:
+    IP_SERVIDOR, PUERTO_TCP, UMBRAL_CPU, UMBRAL_MEM = res
+    tcpSocket = config_tcp(IP_SERVIDOR, PUERTO_TCP)
 
     buffer = b""
     registrado, buffer = registrar_agente(tcpSocket, buffer)

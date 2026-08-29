@@ -1,3 +1,6 @@
 # Archivos generados automáticamente por Python
 __pycache__/
 *.py[cod]
+
+# Bitácoras generadas durante la ejecución
+*.log

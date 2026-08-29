@@ -125,9 +125,29 @@ def atender_agente(tcpSocket, addr):
 
             while True:
                 mensaje, buffer = recibir_mensaje(tcpSocket, buffer)
+                print(f"RECIBIDO DESDE {addr}: {mensaje}")
+                partes = mensaje.split()
 
                 if mensaje == "END": # QUE CORTÓ LA CONEXIÓN
                     break
+
+                if mensaje == "LIST_AGENTS":
+                    with lock_agentes:
+                        id_agentes = list(agentes.keys())
+
+                    cantidad = len(id_agentes)
+                    respuesta = f"AGENTS {cantidad}"
+
+                    if cantidad > 0:
+                        respuesta += " " + " ".join(id_agentes)
+
+                    enviar_mensaje(tcpSocket, respuesta)
+
+                elif mensaje == "ERROR":
+                    print(f"EL ADMIN {addr} INFORMÓ UN ERROR")
+                
+                else:
+                    enviar_mensaje(tcpSocket, "ERROR")
 
         # ERROR:
         else:

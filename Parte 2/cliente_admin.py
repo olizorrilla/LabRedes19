@@ -54,14 +54,73 @@ if res:
                 elif entrada == "L":
                     enviar_mensaje(tcpSocket, "LIST_AGENTS")
                     respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
-                    print(respuesta)
 
                     partes_respuesta = respuesta.split()
-                    ids_agentes = partes_respuesta[2:]
+
+                    if len(partes_respuesta) >= 2 and partes_respuesta[0] == "AGENTS":
+                        cantidad = int(partes_respuesta[1])
+                        ids_agentes = partes_respuesta[2:]
+
+                        if cantidad == 0:
+                            print("NO HAY AGENTES CONECTADOS")
+                        else:
+                            print("AGENTES CONECTADOS:")
+                            for numero, id_agente in enumerate(ids_agentes, start=1): # ENUMERATE CREA PARES (<num>, <id>), EL strart=1 ES PARA QUE <num> ARRANQUE EN 1
+                                print(f"{numero} - {id_agente}")
+                    else:
+                        print("RESPUESTA INCORRECTA DEL SERVIDOR")
 
                 elif len(partes) == 3 and partes[0] == "M":
-                    # CASO M
-                    pass
+                    try:
+                        numero_agente = int(partes[1])
+                    except ValueError:
+                        print("EL NÚMERO DEL AGENTE DEBE SER UN ENTERO")
+                        continue
+
+                    nombre_metrica = partes[2]
+
+                    if nombre_metrica != "CPU" and nombre_metrica != "MEM":
+                        print("LA MÉTRICA DEBE SER CPU O MEM")
+                        continue
+
+                    if numero_agente < 1 or numero_agente > len(ids_agentes):
+                        print("EL NÚMERO DE AGENTE NO ES VÁLIDO")
+                        print("UTILICE L PARA ACTUALIZAR LA LISTA")
+                        continue
+
+                    id_agente = ids_agentes[numero_agente - 1] # -1 PORQUE LAS LISTAS COMIENZAN EN 0
+                    enviar_mensaje(tcpSocket, f"GET_METRIC {id_agente} {nombre_metrica}")
+
+                    respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
+                    partes_respuesta = respuesta.split()
+
+                    if respuesta == "ERROR":
+                        print("EL SERVIDOR NO PUDO REALIZAR LA CONSULTA")
+
+                    elif len(partes_respuesta) >= 4 and partes_respuesta[0] == "MEASUREMENTS":
+                        id_respuesta = partes_respuesta[1]
+                        metrica_respuesta = partes_respuesta[2]
+
+                        try:
+                            cantidad = int(partes_respuesta[3])
+                        except ValueError:
+                            print("RESPUESTA INCORRECTA DEL SERVIDOR")
+                            continue
+
+                        valores = partes_respuesta[4:]
+
+                        if cantidad != len(valores):
+                            print("RESPUESTA INCORRECTA DEL SERVIDOR")
+                            continue
+
+                        if cantidad == 0:
+                            print(f"EL AGENTE {numero_agente} TODAVÍA NO TIENE MEDICIONES DE {metrica_respuesta}")
+                        else:
+                            print(f"MEDICIONES DE {metrica_respuesta} DEL AGENTE {numero_agente}:")
+                            for numero, valor in enumerate(valores, start=1):
+                                print(f"{numero} - {valor}")
+                    else:
+                        print("RESPUESTA INCORRECTA DEL SERVIDOR")
 
                 elif len(partes) == 2 and partes[0] == "P":
                     # CASO P

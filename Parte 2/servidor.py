@@ -7,7 +7,7 @@ HOST = ""
 PORT = 6019
 
 UMBRAL_CPU = "80"
-UMBRAL_MEM = "40"
+UMBRAL_MEM = "80"
 PUERTO_TCP = "6020"
 
 CLAVE = "clave_secreta"
@@ -140,6 +140,30 @@ def atender_agente(tcpSocket, addr):
 
                     if cantidad > 0:
                         respuesta += " " + " ".join(id_agentes)
+
+                    enviar_mensaje(tcpSocket, respuesta)
+
+                elif len(partes) == 3 and partes[0] == "GET_METRIC":
+                    id_agente_consultado = partes[1]
+                    nombre_metrica = partes[2]
+
+                    if nombre_metrica != "CPU" and nombre_metrica != "MEM":
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    with lock_agentes:
+                        if id_agente_consultado in agentes:
+                            valores = list(agentes[id_agente_consultado][nombre_metrica])
+                        else:
+                            valores = None
+
+                    if valores is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    respuesta = (f"MEASUREMENTS {id_agente_consultado} {nombre_metrica} {len(valores)}")
+                    for valor in valores:
+                        respuesta += f" {valor}"
 
                     enviar_mensaje(tcpSocket, respuesta)
 

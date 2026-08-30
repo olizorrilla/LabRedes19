@@ -36,7 +36,7 @@ if res:
         print("COMANDOS DISPONIBLES:")
         print(" L               -> Lista los agentes conectados.") 
         print(" M <x> <CPU|MEM> -> Consulta una métrica del agente x.")
-        print(" P               -> Consulta los procesos del agente x.")
+        print(" P <x>           -> Consulta los procesos del agente x.")
         print(" END             -> Cierra la conexión.")
         print(" SUGERENCIA: Primero utilice L para obtener los agentes.")
 

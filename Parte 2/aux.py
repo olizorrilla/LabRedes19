@@ -5,7 +5,7 @@ import ipaddress
 def obtener_broadcast_lan():
     interfaces = psutil.net_if_addrs()
 
-    for nombre, direcciones in interfaces.items():
+    for direcciones in interfaces.items():
         for direccion in direcciones:
             if direccion.family != socket.AF_INET:
                 continue
@@ -22,6 +22,9 @@ def obtener_broadcast_lan():
             )
 
             return str(red.broadcast_address)
+        #Actualmente tomamos la primera interfaz IPv4 válida. 
+        # Consultar si debemos seleccionar una interfaz concreta o calcular y enviar a los broadcasts de todas las interfaces, 
+        # porque el equipo podría tener Wi-Fi, Ethernet, WSL o una VPN.
 
     return None
 

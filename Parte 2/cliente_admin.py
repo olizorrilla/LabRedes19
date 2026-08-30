@@ -123,8 +123,36 @@ if res:
                         print("RESPUESTA INCORRECTA DEL SERVIDOR")
 
                 elif len(partes) == 2 and partes[0] == "P":
-                    # CASO P
-                    pass
+                    try:
+                        numero_agente = int(partes[1])
+                    except ValueError:
+                        print("EL NÚMERO DEL AGENTE DEBE SER UN ENTERO")
+                        continue
+
+                    if numero_agente < 1 or numero_agente > len(ids_agentes):
+                        print("EL NÚMERO DE AGENTE NO ES VÁLIDO")
+                        print("UTILICE L PARA ACTUALIZAR LA LISTA")
+                        continue
+
+                    id_agente = ids_agentes[numero_agente - 1]
+                    enviar_mensaje(tcpSocket, f"GET_PROC {id_agente}")
+
+                    respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
+
+                    if respuesta == "ERROR":
+                        print("EL SERVIDOR NO PUDO REALIZAR LA CONSULTA")
+                        continue
+
+                    partes_respuesta = respuesta.split(maxsplit=2) # el max split 2 es para que parta maximo en dos lugares, y separa en PROC / ID / LISTA DE PROCESOS
+
+                    if len(partes_respuesta) == 3 and partes_respuesta[0] == "PROC":
+                        procesos = partes_respuesta[2]
+                        print(f"PROCESOS DEL AGENTE {numero_agente}:")
+                        for proceso in procesos.split(", "):
+                            pid, _, nombre = proceso.partition(":")
+                            print(f"{pid} - {nombre}")
+                    else:
+                        print("RESPUESTA INCORRECTA DEL SERVIDOR")
 
                 else:
                     print("COMANDO INVÁLIDO")

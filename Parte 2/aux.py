@@ -1,4 +1,16 @@
+import psutil
 import socket
+
+def obtener_broadcast_lan():
+    interfaces = psutil.net_if_addrs() # devuelve por cada interfaz su clave (el nombre wifi/ethernet/lo) y una lista de direcciones asociadas (ipv4, ipv6, MAC)
+
+    for nombre, direcciones in interfaces.items():
+        if nombre == "lo":          # salteo loopback
+            continue
+        for direccion in direcciones:
+            if direccion.family == socket.AF_INET and direccion.broadcast: # cada direccion tiene 5 campos, filtro solo las que el campo family sea ipv4
+                return direccion.broadcast
+    return None  # no se encontró ninguna interfaz con broadcast
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -12,7 +24,8 @@ def config_tcp(ip_servidor, puerto_tcp):
 
 def descubrir_server(udpSocket):
     try:
-        udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019)) # CAMBIAR POR ALGO DE LA SUBRED, NO ENTENDÍ
+        broadcast = obtener_broadcast_lan()
+        udpSocket.sendto("DISCOVER\n".encode(), (broadcast, 6019))
 
         datos, addr = udpSocket.recvfrom(2048)
         mensaje = datos.decode()
@@ -20,7 +33,7 @@ def descubrir_server(udpSocket):
 
         print("MENSAJE RECIBIDO: ", mensaje, " DESDE: ", addr)
 
-        if len(partes) != 4 or partes[0] != "SERVER":
+        if len(partes) != 4 or partes[0] != "SERVER": # habría que chequear si nos mando numeros validos? por ej, puerto con coma o umbral mayor a 100 o menor que 0
             print("RESPUESTA DEL SERVIDOR INCORRECTA")
             return False
 

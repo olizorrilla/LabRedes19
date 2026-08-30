@@ -8,12 +8,15 @@ PORT = 6019
 
 UMBRAL_CPU = "80"
 UMBRAL_MEM = "80"
-PUERTO_TCP = "6020"
+PUERTO_TCP = "6020" # esta raro que sean strings si despues lo pasamos siempre a int
 
 CLAVE = "clave_secreta"
 
 lock_agentes = threading.Lock()
 agentes = {}
+
+lock_procesos = threading.Lock()
+procesos_pendientes = {}
 
 logging.basicConfig(
     filename="alertas.log",
@@ -28,7 +31,7 @@ def config_udp():
 
 def config_tcp():
     tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #  esta linea hace falta al final? 
     tcpSocket.bind((HOST, int(PUERTO_TCP)))
     tcpSocket.listen()
     return tcpSocket
@@ -110,8 +113,18 @@ def atender_agente(tcpSocket, addr):
                 elif mensaje.startswith("PROC "):
                     procesos = mensaje[len("PROC "):]
                     print(f"PROCESOS DE {id_agente}:{procesos}")
-                    # aca en realidad hay que identificar a que admin mandarle esta info
-                
+
+                    with lock_procesos:
+                        if id_agente in procesos_pendientes:
+                                pendiente = procesos_pendientes[id_agente]
+                        else:
+                                pendiente = None
+                        
+                        if pendiente is not None:
+                            pendiente["resultado"] = procesos
+                            pendiente["evento_proc_listo"].set()
+
+
                 elif mensaje == "ERROR":
                     print(f"EL AGENTE {id_agente} INFORMÓ UN ERROR")
 
@@ -165,6 +178,38 @@ def atender_agente(tcpSocket, addr):
                     for valor in valores:
                         respuesta += f" {valor}"
 
+                    enviar_mensaje(tcpSocket, respuesta)
+
+                elif len(partes) == 2 and partes[0] == "GET_PROC":
+                    id_agente_consultado = partes[1] 
+
+                    with lock_agentes:
+                        if id_agente_consultado in agentes:
+                            agente = agentes[id_agente_consultado]
+                        else:
+                            agente = None
+                    
+                    if agente is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+                    
+                    evento_proc_listo = threading.Event()
+                    
+                    with lock_procesos:
+                        procesos_pendientes[id_agente_consultado] = {"evento_proc_listo": evento_proc_listo,"resultado": None}
+                    
+                    enviar_mensaje(agente["Socket"], "GET_PROC")
+
+                    llego = evento_proc_listo.wait(timeout=10)
+
+                    with lock_procesos:
+                        pendiente = procesos_pendientes.pop(id_agente_consultado, None) # el none es por si la clave ya no está
+
+                    if not llego or pendiente is None or pendiente["resultado"] is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    respuesta = f"PROC {id_agente_consultado} {pendiente['resultado']}"
                     enviar_mensaje(tcpSocket, respuesta)
 
                 elif mensaje == "ERROR":

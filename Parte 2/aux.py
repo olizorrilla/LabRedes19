@@ -1,16 +1,29 @@
 import psutil
 import socket
+import ipaddress
 
 def obtener_broadcast_lan():
-    interfaces = psutil.net_if_addrs() # devuelve por cada interfaz su clave (el nombre wifi/ethernet/lo) y una lista de direcciones asociadas (ipv4, ipv6, MAC)
+    interfaces = psutil.net_if_addrs()
 
     for nombre, direcciones in interfaces.items():
-        if nombre == "lo":          # salteo loopback
-            continue
         for direccion in direcciones:
-            if direccion.family == socket.AF_INET and direccion.broadcast: # cada direccion tiene 5 campos, filtro solo las que el campo family sea ipv4
-                return direccion.broadcast
-    return None  # no se encontró ninguna interfaz con broadcast
+            if direccion.family != socket.AF_INET:
+                continue
+
+            if direccion.address == "127.0.0.1":
+                continue
+
+            if direccion.netmask is None:
+                continue
+
+            red = ipaddress.IPv4Network(
+                f"{direccion.address}/{direccion.netmask}",
+                strict=False
+            )
+
+            return str(red.broadcast_address)
+
+    return None
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

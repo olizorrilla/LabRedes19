@@ -5,7 +5,7 @@ import ipaddress
 def obtener_broadcast_lan():
     interfaces = psutil.net_if_addrs()
 
-    for direcciones in interfaces.items():
+    for nombre, direcciones in interfaces.items():
         for direccion in direcciones:
             if direccion.family != socket.AF_INET:
                 continue

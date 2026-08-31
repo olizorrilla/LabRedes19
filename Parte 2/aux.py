@@ -1,4 +1,6 @@
 import socket
+import psutil
+import ipaddress
 
 def config_udp():
     udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -10,9 +12,36 @@ def config_tcp(ip_servidor, puerto_tcp):
     tcp_socket.connect((ip_servidor, puerto_tcp))
     return tcp_socket
 
+def obtener_broadcast_lan():
+    interfaces = psutil.net_if_addrs()
+
+    for nombre, direcciones in interfaces.items():
+        for direccion in direcciones:
+            if direccion.family != socket.AF_INET:
+                continue
+
+            if direccion.address == "127.0.0.1":
+                continue
+
+            if direccion.netmask is None:
+                continue
+
+            red = ipaddress.IPv4Network(
+                f"{direccion.address}/{direccion.netmask}",
+                strict=False
+            )
+
+            return str(red.broadcast_address)
+            #Actualmente tomamos la primera interfaz IPv4 válida. 
+            # Consultar si debemos seleccionar una interfaz concreta o calcular y enviar a los broadcasts de todas las interfaces, 
+            # porque el equipo podría tener Wi-Fi, Ethernet, WSL o una VPN.
+
+    return None
+
 def descubrir_server(udpSocket):
     try:
-        udpSocket.sendto("DISCOVER\n".encode(), ('255.255.255.255', 6019)) # CAMBIAR POR ALGO DE LA SUBRED, NO ENTENDÍ
+        broadcast = obtener_broadcast_lan()
+        udpSocket.sendto("DISCOVER\n".encode(), (broadcast, 6019))
 
         datos, addr = udpSocket.recvfrom(2048)
         mensaje = datos.decode()

@@ -1,6 +1,3 @@
-import psutil
-import time
-import threading
 from aux import *
 
 IP_SERVIDOR = None

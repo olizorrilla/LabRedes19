@@ -15,6 +15,9 @@ CLAVE = "clave_secreta"
 lock_agentes = threading.Lock()
 agentes = {}
 
+lock_procesos = threading.Lock()
+procesos_pendientes = {}
+
 logging.basicConfig(
     filename="alertas.log",
     level=logging.WARNING,
@@ -102,15 +105,22 @@ def atender_agente(tcpSocket, addr):
 
                     logging.warning(f"AGENTE {id_agente} - {nombre_metrica} = {valor}")
 
-                    print(f"ALERTA DE {id_agente}: "
-                          f"{nombre_metrica} = {valor}"
-                    )
+                    print(f"ALERTA DE {id_agente}: " f"{nombre_metrica} = {valor}")
 
                 # LÓGICA RECIBIMIENTO PROCESOS CORRIENDO:
                 elif mensaje.startswith("PROC "):
                     procesos = mensaje[len("PROC "):]
-                    print(f"PROCESOS DE {id_agente}:{procesos}")
-                    # aca en realidad hay que identificar a que admin mandarle esta info
+
+                    with lock_procesos:
+                        consulta = procesos_pendientes.get(id_agente)
+
+                        if consulta is not None:
+                            consulta["resultado"] = procesos
+                            consulta["evento"].set()
+
+                    if consulta is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+
                 
                 elif mensaje == "ERROR":
                     print(f"EL AGENTE {id_agente} INFORMÓ UN ERROR")
@@ -165,6 +175,54 @@ def atender_agente(tcpSocket, addr):
                     for valor in valores:
                         respuesta += f" {valor}"
 
+                    enviar_mensaje(tcpSocket, respuesta)
+
+                elif len(partes) == 2 and partes[0] == "GET_PROC":
+                    id_agente_consultado = partes[1]
+
+                    with lock_agentes:
+                        if id_agente_consultado in agentes:
+                            socket_agente = agentes[id_agente_consultado]["Socket"]
+                        else:
+                            socket_agente = None
+
+                    if socket_agente is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    evento_respuesta = threading.Event()
+
+                    with lock_procesos:
+                        if id_agente_consultado in procesos_pendientes:
+                            consulta_creada = False
+                        else:
+                            consulta_creada = True
+
+                            procesos_pendientes[id_agente_consultado] = {"evento": evento_respuesta, "resultado": None}
+
+                    if not consulta_creada:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    try:
+                        enviar_mensaje(socket_agente, "GET_PROC")
+                    except ConnectionError:
+                        with lock_procesos:
+                            procesos_pendientes.pop(id_agente_consultado, None)
+
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    llego_respuesta = evento_respuesta.wait(timeout=10)
+
+                    with lock_procesos:
+                        consulta = procesos_pendientes.pop(id_agente_consultado, None)
+
+                    if not llego_respuesta or consulta is None or consulta["resultado"] is None:
+                        enviar_mensaje(tcpSocket, "ERROR")
+                        continue
+
+                    respuesta = (f"PROC {id_agente_consultado} {consulta['resultado']}")
                     enviar_mensaje(tcpSocket, respuesta)
 
                 elif mensaje == "ERROR":

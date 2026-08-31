@@ -41,6 +41,11 @@ def obtener_broadcast_lan():
 def descubrir_server(udpSocket):
     try:
         broadcast = obtener_broadcast_lan()
+
+        if broadcast is None:
+            print("NO SE PUDO OBTENER EL BROADCAST DE LA RED")
+            return False
+
         udpSocket.sendto("DISCOVER\n".encode(), (broadcast, 6019))
 
         datos, addr = udpSocket.recvfrom(2048)

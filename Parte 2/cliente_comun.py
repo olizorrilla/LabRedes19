@@ -1,6 +1,7 @@
-from aux import *
+import psutil
 import time
 import threading
+from aux import *
 
 UMBRAL_CPU = None
 UMBRAL_MEM = None

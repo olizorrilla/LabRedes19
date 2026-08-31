@@ -160,7 +160,7 @@ if res:
                     
                 else:
                     print("COMANDO INVÁLIDO")
-        except ConnectionAbortedError:
+        except ConnectionError:
             print("SE PERDIÓ LA CONEXIÓN CON EL SERVIDOR")
         except KeyboardInterrupt:
             enviar_mensaje(tcpSocket, "END")

@@ -37,7 +37,6 @@ def monitorear(tcpSocket):
 
         tiempo_transcurrido += 1
         
-
         if cpu > UMBRAL_CPU:
             enviar_seguro(tcpSocket, f"ALERT CPU {cpu}")
 
@@ -47,6 +46,7 @@ def monitorear(tcpSocket):
         if tiempo_transcurrido >= 15:
             enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
             enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
+            tiempo_transcurrido = 0
 
 def obtener_procesos():
     procesos = []

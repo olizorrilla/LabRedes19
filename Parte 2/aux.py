@@ -12,35 +12,61 @@ def config_tcp(ip_servidor, puerto_tcp):
     tcp_socket.connect((ip_servidor, puerto_tcp))
     return tcp_socket
 
-def obtener_broadcast_lan():
+def seleccionar_interfaz():
     interfaces = psutil.net_if_addrs()
+    interfaces_validas = []
 
     for nombre, direcciones in interfaces.items():
         for direccion in direcciones:
             if direccion.family != socket.AF_INET:
                 continue
 
-            if direccion.address == "127.0.0.1":
-                continue
+            interfaces_validas.append((nombre, direccion.address, direccion.netmask))
+            break
 
-            if direccion.netmask is None:
-                continue
+    if len(interfaces_validas) == 0:
+        print("NO SE ENCONTRARON INTERFACES IPv4 VÁLIDAS")
+        return None
 
-            red = ipaddress.IPv4Network(
-                f"{direccion.address}/{direccion.netmask}",
-                strict=False
-            )
+    print("INTERFACES DISPONIBLES:")
+    for numero, interfaz in enumerate(interfaces_validas, start=1):
+        nombre, direccion_ip, mascara = interfaz
+        print(f"{numero}. {nombre} - IP: {direccion_ip} - MÁSCARA: {mascara}")
 
-            return str(red.broadcast_address)
-            #Actualmente tomamos la primera interfaz IPv4 válida. 
-            # Consultar si debemos seleccionar una interfaz concreta o calcular y enviar a los broadcasts de todas las interfaces, 
-            # porque el equipo podría tener Wi-Fi, Ethernet, WSL o una VPN.
+    while True:
+        try:
+            numero_elegido = int(input("SELECCIONE UNA INTERFAZ: "))
+        except ValueError:
+            print("DEBE INGRESAR UN NÚMERO")
+            continue
 
-    return None
+        if numero_elegido < 1 or numero_elegido > len(interfaces_validas):
+            print("EL NÚMERO DE INTERFAZ NO ES VÁLIDO")
+            continue
+
+        nombre_interfaz, direccion_ip, mascara = interfaces_validas[numero_elegido - 1]
+        return nombre_interfaz, direccion_ip, mascara
+
+def obtener_broadcast_lan(nombre_interfaz, direccion_ip, mascara):
+    red = ipaddress.IPv4Network(f"{direccion_ip}/{mascara}", strict=False)
+
+    print("INTERFAZ SELECCIONADA:", nombre_interfaz)
+    print("DIRECCIÓN IPv4:", direccion_ip)
+    print("MÁSCARA:", mascara)
+    print("BROADCAST CALCULADO:", red.broadcast_address)
+
+    return str(red.broadcast_address)
 
 def descubrir_server(udpSocket):
     try:
-        broadcast = obtener_broadcast_lan()
+        interfaz = seleccionar_interfaz()
+
+        if interfaz is None:
+            return False
+
+        nombre_interfaz, direccion_ip, mascara = interfaz
+
+        broadcast = obtener_broadcast_lan(nombre_interfaz, direccion_ip, mascara)
 
         if broadcast is None:
             print("NO SE PUDO OBTENER EL BROADCAST DE LA RED")

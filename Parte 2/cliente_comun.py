@@ -29,20 +29,24 @@ def registrar_agente(tcpSocket, buffer):
     return False, buffer
 
 def monitorear(tcpSocket):
+    tiempo_transcurrido = 0
+
     while True:
-        cpu = psutil.cpu_percent()
+        cpu = psutil.cpu_percent(interval=1)
         mem = psutil.virtual_memory().percent
 
-        enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
-        enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
+        tiempo_transcurrido += 1
+        
 
         if cpu > UMBRAL_CPU:
             enviar_seguro(tcpSocket, f"ALERT CPU {cpu}")
 
         if mem > UMBRAL_MEM:
             enviar_seguro(tcpSocket, f"ALERT MEM {mem}")
-        
-        time.sleep(15)
+
+        if tiempo_transcurrido >= 15:
+            enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
+            enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
 
 def obtener_procesos():
     procesos = []

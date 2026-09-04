@@ -231,15 +231,15 @@ def atender_agente(tcpSocket, addr):
             enviar_mensaje(tcpSocket, "ERROR")
 
     except ConnectionError:
-        print("CONEXIÓN CERRADA")
+        pass
 
     finally: # FINALLY ES UNA PARTE DEL TRY QUE SE EJECUTA SIEMPRE
         if id_agente is not None:
             with lock_agentes:
                 agentes.pop(id_agente, None)
 
-            print(f"AGENTE {id_agente} ELIMINADO")
         tcpSocket.close()
+        print(f"CONEXIÓN FINALIZADA CON {addr}")
     
 
 udpSocket = config_udp()

@@ -17,6 +17,38 @@ def registrar_admin(tcpSocket, buffer):
     print("NO SE PUDO REGISTRAR EL AGENTE")
     return False, buffer
 
+def obtener_agentes(tcpSocket, buffer, mostrar):
+    enviar_mensaje(tcpSocket, "LIST_AGENTS")
+    respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
+
+    partes_respuesta = respuesta.split()
+
+    if len(partes_respuesta) < 2 or partes_respuesta[0] != "AGENTS":
+        print("RESPUESTA INCORRECTA DEL SERVIDOR")
+        return [], buffer
+
+    try:
+        cantidad = int(partes_respuesta[1])
+    except ValueError:
+        print("RESPUESTA INCORRECTA DEL SERVIDOR")
+        return [], buffer
+
+    ids_agentes = partes_respuesta[2:]
+
+    if cantidad != len(ids_agentes):
+        print("RESPUESTA INCORRECTA DEL SERVIDOR")
+        return [], buffer
+
+    if mostrar:
+        if cantidad == 0:
+            print("NO HAY AGENTES CONECTADOS")
+        else:
+            print("AGENTES CONECTADOS:")
+            for numero, id_agente in enumerate(ids_agentes, start=1):
+                print(f"{numero} - {id_agente}")
+
+    return ids_agentes, buffer
+
 udpSocket = config_udp()
 res = descubrir_server(udpSocket)
 
@@ -35,7 +67,6 @@ if res:
         print(" M <x> <CPU|MEM> -> Consulta una métrica del agente x.")
         print(" P <x>           -> Consulta los procesos del agente x.")
         print(" END             -> Cierra la conexión.")
-        print(" SUGERENCIA: Primero utilice L para obtener los agentes.")
 
         ids_agentes = []
 
@@ -49,23 +80,7 @@ if res:
                     break
 
                 elif entrada == "L":
-                    enviar_mensaje(tcpSocket, "LIST_AGENTS")
-                    respuesta, buffer = recibir_mensaje(tcpSocket, buffer)
-
-                    partes_respuesta = respuesta.split()
-
-                    if len(partes_respuesta) >= 2 and partes_respuesta[0] == "AGENTS":
-                        cantidad = int(partes_respuesta[1])
-                        ids_agentes = partes_respuesta[2:]
-
-                        if cantidad == 0:
-                            print("NO HAY AGENTES CONECTADOS")
-                        else:
-                            print("AGENTES CONECTADOS:")
-                            for numero, id_agente in enumerate(ids_agentes, start=1): # ENUMERATE CREA PARES (<num>, <id>), EL strart=1 ES PARA QUE <num> ARRANQUE EN 1
-                                print(f"{numero} - {id_agente}")
-                    else:
-                        print("RESPUESTA INCORRECTA DEL SERVIDOR")
+                    ids_agentes, buffer = obtener_agentes(tcpSocket, buffer, True)
 
                 elif len(partes) == 3 and partes[0] == "M":
                     try:
@@ -80,9 +95,10 @@ if res:
                         print("LA MÉTRICA DEBE SER CPU O MEM")
                         continue
 
+                    ids_agentes, buffer = obtener_agentes(tcpSocket, buffer, False)
+
                     if numero_agente < 1 or numero_agente > len(ids_agentes):
                         print("EL NÚMERO DE AGENTE NO ES VÁLIDO")
-                        print("UTILICE L PARA ACTUALIZAR LA LISTA")
                         continue
 
                     id_agente = ids_agentes[numero_agente - 1] # -1 PORQUE LAS LISTAS COMIENZAN EN 0
@@ -126,9 +142,10 @@ if res:
                         print("EL NÚMERO DEL AGENTE DEBE SER UN ENTERO")
                         continue
 
+                    ids_agentes, buffer = obtener_agentes(tcpSocket, buffer, False)
+
                     if numero_agente < 1 or numero_agente > len(ids_agentes):
                         print("EL NÚMERO DE AGENTE NO ES VÁLIDO")
-                        print("UTILICE L PARA ACTUALIZAR LA LISTA")
                         continue
 
                     id_agente = ids_agentes[numero_agente - 1]

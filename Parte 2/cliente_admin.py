@@ -1,4 +1,4 @@
-from aux import *
+from utilidades_red import *
 
 IP_SERVIDOR = None
 PUERTO_TCP = None

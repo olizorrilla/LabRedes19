@@ -1,6 +1,6 @@
 import psutil
 import threading
-from aux import *
+from utilidades_red import *
 
 UMBRAL_CPU = None
 UMBRAL_MEM = None

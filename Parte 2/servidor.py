@@ -1,7 +1,7 @@
 import socket
 import threading
 import logging
-from aux import enviar_mensaje, recibir_mensaje
+from utilidades_red import enviar_mensaje, recibir_mensaje
 
 HOST = ""
 PORT = 6019

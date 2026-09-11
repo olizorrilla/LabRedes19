@@ -30,22 +30,26 @@ def registrar_agente(tcpSocket, buffer):
 def monitorear(tcpSocket):
     tiempo_transcurrido = 0
 
-    while True:
-        cpu = psutil.cpu_percent(interval=1)
-        mem = psutil.virtual_memory().percent
+    try:
+        while True:
+            cpu = psutil.cpu_percent(interval=1)
+            mem = psutil.virtual_memory().percent
 
-        tiempo_transcurrido += 1
-        
-        if cpu > UMBRAL_CPU:
-            enviar_seguro(tcpSocket, f"ALERT CPU {cpu}")
+            tiempo_transcurrido += 1
+            
+            if cpu > UMBRAL_CPU:
+                enviar_seguro(tcpSocket, f"ALERT CPU {cpu}")
 
-        if mem > UMBRAL_MEM:
-            enviar_seguro(tcpSocket, f"ALERT MEM {mem}")
+            if mem > UMBRAL_MEM:
+                enviar_seguro(tcpSocket, f"ALERT MEM {mem}")
 
-        if tiempo_transcurrido >= 15:
-            enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
-            enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
-            tiempo_transcurrido = 0
+            if tiempo_transcurrido >= 15:
+                enviar_seguro(tcpSocket, f"METRIC CPU {cpu}")
+                enviar_seguro(tcpSocket, f"METRIC MEM {mem}")
+                tiempo_transcurrido = 0
+
+    except ConnectionError:
+        return
 
 def obtener_procesos():
     procesos = []
@@ -91,6 +95,8 @@ if res:
             enviar_procesos(tcpSocket, buffer)
         except KeyboardInterrupt:
             enviar_seguro(tcpSocket, "END")
+        except ConnectionError:
+            print("SE PERDIÓ LA CONEXIÓN CON EL SERVIDOR")
         finally:
             tcpSocket.close()
     else:
